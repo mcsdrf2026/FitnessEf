@@ -3,43 +3,79 @@ using Microsoft.EntityFrameworkCore;
 
 await using var db = new FitnessContext();
 
-// 4.1. Получение всех клиентов
-Console.WriteLine("--- 4.1. Все клиенты ---");
-var clients = await db.Clients
+// 5.1. Фильтрация через Where
+Console.WriteLine("--- 5.1. Активные клиенты ---");
+var activeClients = await db.Clients
+    .AsNoTracking()
+    .Where(c => c.Status == "active")
+    .OrderBy(c => c.LastName)
+    .ToListAsync();
+
+foreach (var c in activeClients)
+{
+    Console.WriteLine($"{c.FirstName} {c.LastName}");
+}
+
+// 5.2. Поиск по имени (по фрагменту фамилии)
+Console.Write("\nФрагмент фамилии: ");
+string term = Console.ReadLine()?.Trim() ?? string.Empty;
+
+if (term.Length == 0)
+{
+    Console.WriteLine("Строка поиска не задана.");
+}
+else
+{
+    var found = await db.Clients
+        .AsNoTracking()
+        .Where(c => c.LastName.Contains(term))
+        .OrderBy(c => c.LastName)
+        .ToListAsync();
+
+    foreach (var c in found)
+        Console.WriteLine($"{c.ClientId}: {c.FirstName} {c.LastName}");
+}
+
+// 5.3. Поиск по идентификатору
+Console.Write("\nID клиента: ");
+if (int.TryParse(Console.ReadLine(), out int id) && id > 0)
+{
+    var client = await db.Clients.FindAsync(id);
+    if (client is null)
+        Console.WriteLine("Клиент не найден.");
+    else
+        Console.WriteLine($"{client.ClientId}: {client.FirstName} {client.LastName}");
+}
+else
+{
+    Console.WriteLine("ID должен быть положительным целым числом.");
+}
+
+// 5.4. Количество и наличие
+Console.WriteLine("\n--- 5.4. Статистика ---");
+int total = await db.Clients.CountAsync();
+bool hasInactive = await db.Clients.AnyAsync(c => c.Status == "inactive");
+int activeCount = await db.Clients.CountAsync(c => c.Status == "active");
+
+Console.WriteLine($"Всего клиентов: {total}");
+Console.WriteLine($"Активных клиентов: {activeCount}");
+Console.WriteLine(hasInactive
+    ? "Есть неактивные клиенты."
+    : "Неактивные клиенты отсутствуют.");
+
+// 5.5. Постраничная загрузка
+Console.WriteLine("\n--- 5.5. Постраничная загрузка (стр. 1, размер 5) ---");
+int page = 1;
+int pageSize = 5;
+
+var pageOfClients = await db.Clients
     .AsNoTracking()
     .OrderBy(c => c.ClientId)
+    .Skip((page - 1) * pageSize)
+    .Take(pageSize)
     .ToListAsync();
 
-foreach (var client in clients)
+foreach (var c in pageOfClients)
 {
-    Console.WriteLine($"{client.ClientId}: {client.FirstName} {client.LastName}; статус: {client.Status}");
+    Console.WriteLine($"{c.ClientId}: {c.FirstName} {c.LastName}");
 }
-
-// 4.2. Проекция в анонимный тип
-Console.WriteLine("\n--- 4.2. Проекция (ФИО и Телефон) ---");
-var projectedClients = await db.Clients
-    .AsNoTracking()
-    .OrderBy(c => c.LastName)
-    .ThenBy(c => c.FirstName)
-    .Select(c => new {
-        c.ClientId,
-        FullName = c.FirstName + " " + c.LastName,
-        c.Phone
-    })
-    .ToListAsync();
-
-foreach (var c in projectedClients)
-{
-    Console.WriteLine($"{c.ClientId}: {c.FullName}; тел.: {c.Phone ?? "не указан"}");
-}
-
-// 4.3. Различия методов поиска
-Console.WriteLine("\n--- 4.3. Различия методов ---");
-var firstOrNull = await db.Clients.FirstOrDefaultAsync(c => c.FirstName == "Анна");
-Console.WriteLine($"FirstOrDefaultAsync: {(firstOrNull != null ? "Найдена Анна" : "Никого не нашли")}");
-
-var singleOrNull = await db.Clients.SingleOrDefaultAsync(c => c.ClientId == 1);
-Console.WriteLine($"SingleOrDefaultAsync: {(singleOrNull != null ? "Найден клиент с ID 1" : "Не найден")}");
-
-var foundById = await db.Clients.FindAsync(2);
-Console.WriteLine($"FindAsync: {(foundById != null ? $"По ID 2 найден {foundById.FirstName}" : "Не найден")}");
