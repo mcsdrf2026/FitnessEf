@@ -3,44 +3,62 @@ using Microsoft.EntityFrameworkCore;
 
 await using var db = new FitnessContext();
 
-Console.WriteLine("--- Задание 6: Добавление клиента ---");
+Console.WriteLine("--- Задание 7 ---");
 
-// 6.2. Проверка пользовательского ввода
-Console.Write("Имя: ");
-string firstName = Console.ReadLine()?.Trim() ?? string.Empty;
+// 7.1. Изменение отслеживаемого объекта
+Console.WriteLine("\n--- 7.1. Изменение телефона (ID=1) ---");
+int idToUpdate = 1;
+var clientToUpdate = await db.Clients.FirstOrDefaultAsync(c => c.ClientId == idToUpdate);
 
-Console.Write("Фамилия: ");
-string lastName = Console.ReadLine()?.Trim() ?? string.Empty;
-
-if (string.IsNullOrWhiteSpace(firstName) || string.IsNullOrWhiteSpace(lastName))
+if (clientToUpdate is null)
 {
-    Console.WriteLine("Имя и фамилия обязательны. Добавление отменено.");
-    return; // Выходим из программы, ничего не добавляем
+    Console.WriteLine("Клиент не найден.");
+}
+else
+{
+    clientToUpdate.Phone = "79990001122";
+    await db.SaveChangesAsync();
+    Console.WriteLine("Телефон изменён.");
 }
 
-// 6.1. Добавление сущности
-var client = new Client
+// 7.4. Несколько действий перед сохранением
+Console.WriteLine("\n--- 7.4. Несколько действий перед сохранением ---");
+db.Clients.Add(new Client
 {
-    FirstName = firstName,
-    LastName = lastName,
-    BirthDate = new DateOnly(2000, 5, 15), // Пример даты
-    Phone = "79995554433",
-    Email = "test@example.com",
+    FirstName = "Анна",
+    LastName = "Смирнова",
     RegistrationDate = DateOnly.FromDateTime(DateTime.Today),
     Status = "active"
-};
+});
 
-// 6.3. Обработка DbUpdateException
-try
+var existing = await db.Clients.FindAsync(idToUpdate);
+if (existing is not null)
 {
-    db.Clients.Add(client);
-    int saved = await db.SaveChangesAsync();
-
-    Console.WriteLine($"\nСохранено изменений: {saved}");
-    Console.WriteLine($"Клиент добавлен. Новый ID: {client.ClientId}");
+    existing.Status = "inactive";
 }
-catch (DbUpdateException ex)
+
+await db.SaveChangesAsync();
+Console.WriteLine("Добавлен новый клиент и изменён статус ID=1 (всё за один SaveChanges).");
+
+// 7.2. Удаление
+Console.WriteLine("\n--- 7.2. Удаление ---");
+Console.Write("Введите ID клиента для удаления (например, 2): ");
+if (int.TryParse(Console.ReadLine(), out int idToDelete))
 {
-    Console.WriteLine("\nНе удалось сохранить клиента. Проверьте данные и ограничения БД.");
-    Console.WriteLine(ex.GetBaseException().Message); // только учебная диагностика
+    var clientToDelete = await db.Clients.FindAsync(idToDelete);
+
+    if (clientToDelete is null)
+    {
+        Console.WriteLine("Клиент не найден.");
+    }
+    else
+    {
+        db.Clients.Remove(clientToDelete);
+        await db.SaveChangesAsync();
+        Console.WriteLine($"Клиент с ID {idToDelete} удалён.");
+    }
+}
+else
+{
+    Console.WriteLine("Некорректный ID. Удаление отменено.");
 }
