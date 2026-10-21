@@ -1,48 +1,52 @@
 ﻿using FitnessEf;
 using Microsoft.EntityFrameworkCore;
 
-await using var db = new FitnessContext();
-
-// 9.4. Добавление посещения
-Console.WriteLine("--- 9.4. Добавление посещения ---");
-int clientId = 1;
-
-// Проверяем, существует ли клиент с таким ID
-var clientExists = await db.Clients.AnyAsync(c => c.ClientId == clientId);
-
-if (!clientExists)
+try
 {
-    Console.WriteLine("Клиента с таким ID нет.");
-}
-else
-{
-    // Создаем новое посещение и привязываем к клиенту
-    db.Visits.Add(new Visit
+    // 11.2. Асинхронное выполнение и короткоживущий контекст
+    await using var db = new FitnessContext();
+
+    // 11.3. Сравнение отслеживаемого и нетрекаемого запроса
+    Console.WriteLine("--- 11.3. Запрос без отслеживания (AsNoTracking) ---");
+    var list = await db.Clients
+        .AsNoTracking()
+        .ToListAsync();
+    Console.WriteLine($"Загружено клиентов (без отслеживания): {list.Count}");
+
+    Console.WriteLine("\n--- 11.3. Отслеживаемый запрос (с изменением) ---");
+    int id = 1;
+    var client = await db.Clients.FirstOrDefaultAsync(c => c.ClientId == id);
+
+    if (client is not null)
     {
-        ClientId = clientId,
-        VisitDate = DateOnly.FromDateTime(DateTime.Today),
-        Note = "Первичное Задание"
-    });
-
-    await db.SaveChangesAsync();
-    Console.WriteLine($"Посещение для клиента с ID {clientId} успешно добавлено!");
-}
-
-// 9.5. Чтение клиента вместе с посещениями (Include)
-Console.WriteLine("\n--- 9.5. Клиенты и их посещения ---");
-var clients = await db.Clients
-    .AsNoTracking()
-    .Include(c => c.Visits) // Именно Include подгружает связанные данные из таблицы visits
-    .OrderBy(c => c.ClientId)
-    .ToListAsync();
-
-foreach (var client in clients)
-{
-    Console.WriteLine($"{client.FirstName} {client.LastName}");
-
-    // Выводим посещения для этого клиента
-    foreach (var visit in client.Visits)
-    {
-        Console.WriteLine($"  {visit.VisitDate}: {visit.Note}");
+        Console.WriteLine($"До изменения: {client.FirstName}, статус: {client.Status}");
+        client.Status = "inactive";
+        await db.SaveChangesAsync(); // 11.2. Сохранение асинхронно
+        Console.WriteLine($"После изменения: статус изменен на 'inactive'");
     }
+
+    // 11.4. Диагностика SQL
+    Console.WriteLine("\n--- 11.4. Диагностика SQL (ToQueryString) ---");
+    var query = db.Clients
+        .Where(c => c.Status == "active")
+        .OrderBy(c => c.LastName);
+
+    // Этот метод покажет SQL-запрос, который EF Core сгенерирует для базы PostgreSQL, 
+    // но НЕ выполнит его.
+    Console.WriteLine(query.ToQueryString());
+}
+// 11.1. Базовая обработка ошибок
+catch (InvalidOperationException ex)
+{
+    Console.WriteLine($"Ошибка конфигурации: {ex.Message}");
+}
+catch (DbUpdateException ex)
+{
+    Console.WriteLine("Ошибка сохранения данных.");
+    Console.WriteLine(ex.GetBaseException().Message);
+}
+catch (Exception ex)
+{
+    Console.WriteLine("Произошла непредвиденная ошибка.");
+    Console.WriteLine(ex.Message);
 }

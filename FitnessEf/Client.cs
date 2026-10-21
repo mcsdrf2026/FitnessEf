@@ -13,6 +13,12 @@ public sealed class Client
 
     public DateOnly RegistrationDate { get; set; } =
         DateOnly.FromDateTime(DateTime.Today);
-    public List<Visit> Visits { get; set; } = new();
+
     public string Status { get; set; } = "active";
+
+    // Из Задания 10
+    public string? Note { get; set; }
+
+    // Из Задания 9
+    public List<Visit> Visits { get; set; } = new();
 }

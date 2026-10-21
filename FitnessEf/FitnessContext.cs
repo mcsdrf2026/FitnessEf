@@ -6,7 +6,7 @@ public sealed class FitnessContext : DbContext
 {
     public DbSet<Client> Clients => Set<Client>();
 
-    // Добавили DbSet для посещений
+    // DbSet для посещений
     public DbSet<Visit> Visits => Set<Visit>();
 
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
@@ -35,6 +35,9 @@ public sealed class FitnessContext : DbContext
             entity.Property(c => c.Email).HasColumnName("email").HasMaxLength(254);
             entity.Property(c => c.RegistrationDate).HasColumnName("registration_date").HasColumnType("date").IsRequired();
             entity.Property(c => c.Status).HasColumnName("status").HasMaxLength(20).IsRequired();
+
+            // НОВОЕ СВОЙСТВО ИЗ ЗАДАНИЯ 10
+            entity.Property(c => c.Note).HasColumnName("note").HasMaxLength(500);
         });
 
         // Конфигурация для таблицы visits (Один-ко-Многим)
